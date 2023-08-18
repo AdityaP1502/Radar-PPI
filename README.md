@@ -1,6 +1,6 @@
 # Radar-PPI
 Display object sensed by radar into PPI. 
 
-TODO:
-  []. Add Spectogram
-  []. Add Real Time Plot
+TODO: <br>
+  1. Add Spectogram <br>
+  2. Add Real Time Plot
