@@ -44,17 +44,19 @@ class MainWindow(QMainWindow):
         
         # Set up for ax
         self.ax = self.figure.add_subplot(111, projection='polar', facecolor='#000000')
-        # self.ax.set_position([-0.05,-0.05,1.1,1.05])
+        
         self.ax.set_xlim([0.0,2 * np.pi]) # peak of angle to show
         self.ax.set_ylim([0.0,5]) # peak of distances to show
         self.ax.set_rticks([0, 20, 40, 60, 80, 100]) # show 5 different distances
+        
         self.ax.tick_params(axis='both',colors='g')
         self.ax.grid(color='w',alpha=0.5) # grid color
-        # self.ax.text(0.5, -0.01, "Jarak: 0", size=12, ha='center', c='w', transform=self.ax.transAxes)
+        
+        
         self.x1_vals = []
         self.y1_vals = []
-        self.intensity = []
-        self.annot = None
+        self.intensity = [] # parameter for fade effects
+        self.annot = None # annotate
         self.scatter = self.ax.scatter(self.x1_vals, self.y1_vals, cmap=cmap, c=[], vmin=0, vmax=1)
         
         self.canvas.draw()
@@ -115,9 +117,10 @@ def get_updater(plot, get_new_vals):
             
         plot.annot = plot.ax.annotate("{:.2f} m".format(new_yvals[0]), (new_xvals[0], new_yvals[0]), c="w")
         
-        #calculate new color values
+        # set fade effects
         plot.intensity = np.concatenate((np.array(plot.intensity) * fade_intensity, np.ones(len(new_xvals))))
         plot.scatter.set_array(plot.intensity)
+        
         plot.canvas.draw()
         
     return update
