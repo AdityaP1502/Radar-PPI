@@ -1,6 +1,7 @@
 import sys
 import random
 
+
 import numpy as np
 from PyQt6.QtWidgets import *
 from PyQt6 import QtCore, QtGui
@@ -15,11 +16,16 @@ from matplotlib.colors import LinearSegmentedColormap
 from getspectrum import readExcelData, convertDatatoDf
 
 
+# Fade Effects Parameter
 colors = [[1,1,1,0],[1,1,1,0.5],[0.8,0.8,0.8,1]]
 cmap = LinearSegmentedColormap.from_list("", colors)
-
-n_sample = 1024
 fade_intensity = 0.15
+
+# serial interface
+# import serial
+# ser = serial.Serial(port='COM6', baudrate=20000000, timeout=1)
+n_sample = 1024
+SENTINEL = []
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -81,17 +87,14 @@ def spectrum_analyzer(time_data):
     max_idx = np.argmax(data_f)
     return spectrum_to_jarak(max_idx)
 
-def data_updater(data):
-    counter = 0
+def data_updater(data_gen):
     def data_source():
-        nonlocal counter
-        data_now = data.iloc[counter].values
-        dist = spectrum_analyzer(data_now)
+        data_now = data_gen()
         
-        if counter > len(data):
+        if len(data_now) == 0:
             return [], []
         
-        counter += 1
+        dist = spectrum_analyzer(data_now)
         return [random.uniform(0, np.pi)], [dist]
     
     return data_source
@@ -125,6 +128,30 @@ def get_updater(plot, get_new_vals):
         
     return update
 
+def excel_data_gen(excel_data):
+    counter = 0
+    
+    def data_gen():
+        nonlocal counter
+        if counter >= len(excel_data):
+            return SENTINEL
+        
+        _ = excel_data.iloc[counter].values
+        counter += 1
+        return _
+    
+    return data_gen
+    
+def serial_data_gen(ser):
+    def data_gen():
+        dat1 = ser.read(n_sample*2) # Read ser data from serial
+        dat2 = np.frombuffer(dat1, dtype='int16', offset=0) # Convert to int16
+        s = np.array(dat2[0:n_sample]) # Make np array
+    
+        return s
+    
+    return data_gen
+    
 if __name__ == '__main__':
     app = QApplication([])
     plot = MainWindow()
@@ -132,8 +159,12 @@ if __name__ == '__main__':
     
     raw_data = readExcelData('dataradarspectr_new.xlsx')
     raw_data = convertDatatoDf(raw_data)
+
+    data_gen = excel_data_gen(raw_data)   
     
-    raw_source = data_updater(raw_data)
+    # data_gen = serial_data_gen(ser) # serial interface
+    
+    raw_source = data_updater(data_gen=data_gen)
     
     try:
             timer.timeout.connect(get_updater(plot, raw_source))
