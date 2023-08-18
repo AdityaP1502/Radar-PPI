@@ -1,0 +1,10 @@
+# Excel files
+*.xlsx
+*.csv
+
+# pycache
+__pycache__
+
+# env 
+env/
+venv/
