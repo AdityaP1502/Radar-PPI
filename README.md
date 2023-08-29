@@ -10,3 +10,5 @@ To run this using serial port, use -s and specify the port using --port when run
 ```shell
 python main.py -s --port=COM6
 ```
+
+By default, the program will use excel as it's data source. 
