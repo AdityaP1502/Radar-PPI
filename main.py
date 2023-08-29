@@ -1,6 +1,6 @@
 import sys
 import random
-
+from collections import Counter
 
 import numpy as np
 from PyQt6.QtWidgets import *
@@ -23,7 +23,9 @@ fade_intensity = 0.15
 
 # serial interface
 # import serial
+
 # ser = serial.Serial(port='COM6', baudrate=20000000, timeout=1)
+
 n_sample = 1024
 SENTINEL = []
 
@@ -87,15 +89,41 @@ def spectrum_analyzer(time_data):
     max_idx = np.argmax(data_f)
     return spectrum_to_jarak(max_idx)
 
+def process():
+    NotImplemented
+
+def most_common_dist(array):
+    # Count the occurrences of each element in the array
+    count = Counter(array)
+    
+    # Find the most common element and its count
+    most_common = count.most_common(1)
+    
+    return most_common[0][0] if most_common else None
+    
 def data_updater(data_gen):
+    dists = [0 for i in range(5)]
+    k = 0
     def data_source():
+        nonlocal dists, k
         data_now = data_gen()
         
         if len(data_now) == 0:
             return [], []
         
         dist = spectrum_analyzer(data_now)
-        return [random.uniform(0, np.pi)], [dist]
+        
+        
+        if k == 5:
+            common_dist = most_common_dist(dists)
+            k = k * 0
+            return [random.uniform(0, np.pi)], [common_dist]
+            
+        dists[k] = dist
+        k += 1
+        
+        return [], []
+        
     
     return data_source
 
@@ -106,8 +134,7 @@ def get_updater(plot, get_new_vals):
         new_xvals, new_yvals = get_new_vals()
         
         if len(new_xvals) == 0:
-            new_xvals, new_yvals = [0], [0]
-            print("Done")
+            return
             
         plot.x1_vals.extend(new_xvals)
         plot.y1_vals.extend(new_yvals)
