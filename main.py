@@ -176,12 +176,12 @@ def serial_data_gen(ser):
 def show_help():
     print("""-h or --help : Show help screen
           -s : use serial data generator. When use this options, serial port must be specified using --port. When this is not used, data from "dataradarspectr_new.xlsx" will be used as data gen. 
-          --port : serial port that are used when -s is specified. Usage : --port  [COMx]. Example : --port COM6  
+          --port : serial port that are used when -s is specified. Usage : --port  [COMx]. Example : --port=COM6  
           """)
     
 if __name__ == '__main__':
     try:
-        opts, args = getopt.getopt(argv[1:], shortopts="sh", longopts=["port=, help"])
+        opts, args = getopt.getopt(argv[1:], shortopts="sh", longopts=["port=", "help"])
     except getopt.GetoptError as err:
         print(err)
         print("Error : Invalid Argument")
@@ -191,6 +191,7 @@ if __name__ == '__main__':
     for opt, arg in opts:
         if opt == "-h":
             show_help()
+            exit(0)
             
         if opt == "-s":
             USE_SERIAL = True
