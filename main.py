@@ -56,19 +56,14 @@ class MainWindow(QMainWindow):
         # Set up for ax
         self.ax = self.figure.add_subplot(111, projection='polar', facecolor='#000000')
         
-        self.ax.set_xlim([0.0,2 * np.pi]) # peak of angle to show
-        self.ax.set_ylim([0.0,5]) # peak of distances to show
-        self.ax.set_rticks([0, 20, 40, 60, 80, 100]) # show 5 different distances
+        self.ax.set_xlim([1/4 * np.pi ,3/4 * np.pi]) # peak of angle to show
+        self.ax.set_ylim([0.0,90]) # peak of distances to show
+        self.ax.set_rticks([0, 20, 30, 50, 90]) # show 5 different distances
         
         self.ax.tick_params(axis='both',colors='g')
         self.ax.grid(color='w',alpha=0.5) # grid color
         
-        
-        self.x1_vals = []
-        self.y1_vals = []
-        self.intensity = [] # parameter for fade effects
-        self.annot = None # annotate
-        self.scatter = self.ax.scatter(self.x1_vals, self.y1_vals, cmap=cmap, c=[], vmin=0, vmax=1)
+        # self.scatter = self.ax.scatter(self.x1_vals, self.y1_vals, cmap=cmap, c=[], vmin=0, vmax=1)
         
         self.canvas.draw()
         self.canvasx.draw()
@@ -116,11 +111,11 @@ def data_updater(data_gen):
         
         dist = spectrum_analyzer(data_now)
         
-        
         if k == 5:
             common_dist = most_common_dist(dists)
+            print(common_dist)
             k = k * 0
-            return [random.uniform(0, np.pi)], [common_dist]
+            return [random.uniform(1/4 * np.pi, 5/4 * np.pi)], [common_dist]
             
         dists[k] = dist
         k += 1
@@ -138,22 +133,18 @@ def get_updater(plot, get_new_vals):
         
         if len(new_xvals) == 0:
             return
-            
-        plot.x1_vals.extend(new_xvals)
-        plot.y1_vals.extend(new_yvals)
-
-        # Put new values in your plot
-        plot.scatter.set_offsets(np.c_[plot.x1_vals,plot.y1_vals])
+                
+        plot.ax.clear()
+        plot.ax.set_xlim([1/4 * np.pi ,3/4 * np.pi]) # peak of angle to show
+        plot.ax.set_ylim([0.0,90]) # peak of distances to show
+        plot.ax.set_rticks([0, 20, 30, 50, 90]) # show 5 different distances
         
-        if plot.annot != None:
-            plot.annot.remove()
-            
         plot.annot = plot.ax.annotate("{:.2f} m".format(new_yvals[0]), (new_xvals[0], new_yvals[0]), c="w")
         
-        # set fade effects
-        plot.intensity = np.concatenate((np.array(plot.intensity) * fade_intensity, np.ones(len(new_xvals))))
-        plot.scatter.set_array(plot.intensity)
-        
+        dt = 1/18 * np.pi
+        t1, t0 = min(new_xvals[0] + dt,3/4 * np.pi), max(new_xvals[0] - dt, 0)
+        a = np.linspace(1/4 * np.pi ,3/4 * np.pi, 50)
+        plot.ax.fill_between(a, new_yvals[0], 0, color = 'g', where = ((a < t1) & (a > t0)))
         plot.canvas.draw()
         
     return update
@@ -215,15 +206,18 @@ if __name__ == '__main__':
     plot = MainWindow()
     timer = QtCore.QTimer()
     
-    raw_data = readExcelData('dataradarspectr_new.xlsx')
-    raw_data = convertDatatoDf(raw_data)
+    
 
     if USE_SERIAL:
         import serial
+        print("Using serial in port {}".format(SERIAL_PORT))
         ser = serial.Serial(port=SERIAL_PORT, baudrate=20000000, timeout=1)
         data_gen = serial_data_gen(ser) # serial interface
     
     else:
+        print("Using data from excel")
+        raw_data = readExcelData('dataradarspectr_new.xlsx')
+        raw_data = convertDatatoDf(raw_data)
         data_gen = excel_data_gen(raw_data)   
 
     raw_source = data_updater(data_gen=data_gen)
