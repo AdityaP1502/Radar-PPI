@@ -210,13 +210,13 @@ if __name__ == '__main__':
     
 
     if USE_SERIAL:
-        import serial
+        from serial import Serial
         print("Using serial in port {}".format(SERIAL_PORT))
-        ser = serial.Serial(port=SERIAL_PORT, baudrate=20000000, timeout=1)
+        ser = Serial(port=SERIAL_PORT, baudrate=20000000, timeout=1)
         data_gen = serial_data_gen(ser) # serial interface
     
     else:
-        print("Using data from excel")
+        print("Serial mode is disabled. Using data from excel.\nIf you want to use serial, please use -h or --help for more details")
         raw_data = readExcelData('dataradarspectr_new.xlsx')
         raw_data = convertDatatoDf(raw_data)
         data_gen = excel_data_gen(raw_data)   
