@@ -1,6 +1,12 @@
 # Radar-PPI
 Display object sensed by radar into PPI. 
 
-TODO: <br>
-  1. Add Spectogram <br>
-  2. Add Real Time Plot
+# RUN
+```shell
+python main.py <Specify Option>
+```
+
+To run this using serial port, use -s and specify the port using --port when running, like the example below. 
+```shell
+python main.py -s --port=COM6
+```
