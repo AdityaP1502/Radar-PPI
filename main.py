@@ -1,4 +1,6 @@
 import sys
+from sys import argv
+import getopt
 import random
 from collections import Counter
 
@@ -24,10 +26,11 @@ fade_intensity = 0.15
 # serial interface
 # import serial
 
-# ser = serial.Serial(port='COM6', baudrate=20000000, timeout=1)
-
 n_sample = 1024
 SENTINEL = []
+
+USE_SERIAL = False
+SERIAL_PORT = None
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -178,8 +181,36 @@ def serial_data_gen(ser):
         return s
     
     return data_gen
+
+def show_help():
+    print("""-h or --help : Show help screen
+          -s : use serial data generator. When use this options, serial port must be specified using --port. When this is not used, data from "dataradarspectr_new.xlsx" will be used as data gen. 
+          --port : serial port that are used when -s is specified. Usage : --port  [COMx]. Example : --port COM6  
+          """)
     
 if __name__ == '__main__':
+    try:
+        opts, args = getopt.getopt(argv[1:], shortopts="sh", longopts=["port=, help"])
+    except getopt.GetoptError as err:
+        print(err)
+        print("Error : Invalid Argument")
+        show_help()
+        exit(1)
+        
+    for opt, arg in opts:
+        if opt == "-h":
+            show_help()
+            
+        if opt == "-s":
+            USE_SERIAL = True
+        
+        if opt == "--port":
+            SERIAL_PORT = arg
+    
+    if USE_SERIAL and SERIAL_PORT == None:
+        print("Please specify serial port when running this with -s enabled")
+        exit(1)
+        
     app = QApplication([])
     plot = MainWindow()
     timer = QtCore.QTimer()
@@ -187,15 +218,26 @@ if __name__ == '__main__':
     raw_data = readExcelData('dataradarspectr_new.xlsx')
     raw_data = convertDatatoDf(raw_data)
 
-    data_gen = excel_data_gen(raw_data)   
+    if USE_SERIAL:
+        import serial
+        ser = serial.Serial(port=SERIAL_PORT, baudrate=20000000, timeout=1)
+        data_gen = serial_data_gen(ser) # serial interface
     
-    # data_gen = serial_data_gen(ser) # serial interface
-    
+    else:
+        data_gen = excel_data_gen(raw_data)   
+
     raw_source = data_updater(data_gen=data_gen)
     
+    t = 1 if USE_SERIAL else 1000
+    
     try:
+        while True:
+            if USE_SERIAL:
+                ser.flushInput()
+                ser.flushOutput()
+                 
             timer.timeout.connect(get_updater(plot, raw_source))
-            timer.start(1000)
+            timer.start(t)
             
             app.instance().exec()
     except KeyboardInterrupt:
