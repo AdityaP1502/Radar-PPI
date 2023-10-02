@@ -11,9 +11,11 @@ from PyQt6.QtGui import *
 from PyQt6.QtCore import *
 
 import matplotlib.pyplot as plt
+from matplotlib.mlab import specgram, window_hanning
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib.colors import LinearSegmentedColormap
+from matplotlib.colors import LogNorm
 
 from getspectrum import readExcelData, convertDatatoDf
 
@@ -22,6 +24,13 @@ from getspectrum import readExcelData, convertDatatoDf
 colors = [[1,1,1,0],[1,1,1,0.5],[0.8,0.8,0.8,1]]
 cmap = LinearSegmentedColormap.from_list("", colors)
 fade_intensity = 0.15
+
+# Spectogram Parameters
+sample_rate = 44100  # Sample rate in Hz
+duration = 10  # Duration of audio recording in seconds
+fft_size = 1024  # Size of the FFT (Fast Fourier Transform)
+hop_size = 256   # Hop size between consecutive FFT frames
+SAMPLES_PER_FRAME = 10
 
 # serial interface
 # import serial
@@ -54,14 +63,18 @@ class MainWindow(QMainWindow):
         # self.angles = np.linspace(0, np.pi, 100)
         
         # Set up for ax
-        self.ax = self.figure.add_subplot(111, projection='polar', facecolor='#000000')
+        self.ax_ppi = self.figure.add_subplot(111, projection='polar', facecolor='#000000')
+        self.ax_ppi.set_xlim([1/4 * np.pi ,3/4 * np.pi]) # peak of angle to show
+        self.ax_ppi.set_ylim([0.0,90]) # peak of distances to show
+        self.ax_ppi.set_rticks([0, 20, 30, 50, 90]) # show 5 different distances
+        self.ax_ppi.tick_params(axis='both',colors='g')
+        self.ax_ppi.grid(color='w',alpha=0.5) # grid color
         
-        self.ax.set_xlim([1/4 * np.pi ,3/4 * np.pi]) # peak of angle to show
-        self.ax.set_ylim([0.0,90]) # peak of distances to show
-        self.ax.set_rticks([0, 20, 30, 50, 90]) # show 5 different distances
+        self.ax_spectogram = self.figurex.add_subplot(211, facecolor='#FFFFFF')
+        self.im_spec = None
+        self.spectogram_frame_counter = 0
         
-        self.ax.tick_params(axis='both',colors='g')
-        self.ax.grid(color='w',alpha=0.5) # grid color
+        self.ax_time_data = self.figurex.add_subplot(212, facecolor='#000000')
         
         # self.scatter = self.ax.scatter(self.x1_vals, self.y1_vals, cmap=cmap, c=[], vmin=0, vmax=1)
         
@@ -85,7 +98,7 @@ def spectrum_analyzer(time_data):
     data_f = data_f * data_f / 15  
     
     max_idx = np.argmax(data_f)
-    return spectrum_to_jarak(max_idx)
+    return spectrum_to_jarak(max_idx), n_sample_x
 
 def process():
     NotImplemented
@@ -107,46 +120,89 @@ def data_updater(data_gen):
         data_now = data_gen()
         
         if len(data_now) == 0:
-            return [], []
+            return [], [], [], 0
         
-        dist = spectrum_analyzer(data_now)
+        dist, n_sample_x = spectrum_analyzer(data_now)
         
         if k == 5:
             common_dist = most_common_dist(dists)
             print(common_dist)
             k = k * 0
-            return [random.uniform(1/4 * np.pi, 5/4 * np.pi)], [common_dist]
+            return [random.uniform(1/4 * np.pi, 5/4 * np.pi)], [common_dist], data_now, n_sample_x
             
         dists[k] = dist
         k += 1
         
-        return [], []
+        return [], [], data_now, n_sample_x
         
     
     return data_source
 
+def update_spectrogram(data, plot):
+    """
+        https://github.com/ayared/Live-Specgram
+    """
+    
+    # Compute the spectrogram
+    arr2D, freqs, bins = specgram(data, window=window_hanning, NFFT=fft_size, Fs=sample_rate, noverlap=hop_size)
+    
+    if plot.im_spec == None:
+        # extent = (bins[0],bins[-1]*SAMPLES_PER_FRAME,freqs[-1],freqs[0])
+        plot.im_spec = plot.ax_spectogram.imshow(arr2D,aspect='auto',interpolation="none",
+                    norm = LogNorm(vmin=.01,vmax=1))
+        return
+    
+    im_data = plot.im_spec.get_array()
+    print(im_data)
+
+    if plot.spectogram_frame_counter < SAMPLES_PER_FRAME:
+        im_data = np.hstack((im_data,arr2D))
+        plot.im_spec.set_array(im_data)
+    else:
+        keep_block = arr2D.shape[1]*(SAMPLES_PER_FRAME - 1)
+        im_data = np.delete(im_data,np.s_[:-keep_block],1)
+        im_data = np.hstack((im_data,arr2D))
+        plot.im_spec.set_array(im_data)
+        
+    plot.canvasx.draw()
+    plot.spectogram_frame_counter += 1
+
+def update_time_data(data, plot):
+    plot.ax_time_data.cla()
+    plot.ax_time_data.plot(data)
+    plot.canvasx.draw()
+    
+    
 def get_updater(plot, get_new_vals):
     global fade_intensity
     def update():
         # Get intermediate points
-        new_xvals, new_yvals = get_new_vals()
+        new_xvals, new_yvals, raw_data, n = get_new_vals()
         
+        if len(raw_data) == 0:
+            print("Done!")
+            sys.exit(0)
+        
+        update_spectrogram(raw_data, plot)
+        update_time_data(raw_data[:n], plot)
+            
         if len(new_xvals) == 0:
             return
+
                 
-        plot.ax.clear()
-        plot.ax.set_xlim([1/4 * np.pi ,3/4 * np.pi]) # peak of angle to show
-        plot.ax.set_ylim([0.0,90]) # peak of distances to show
-        plot.ax.set_rticks([0, 20, 30, 50, 90]) # show 5 different distances
+        plot.ax_ppi.clear()
+        plot.ax_ppi.set_xlim([1/4 * np.pi ,3/4 * np.pi]) # peak of angle to show
+        plot.ax_ppi.set_ylim([0.0,90]) # peak of distances to show
+        plot.ax_ppi.set_rticks([0, 20, 30, 50, 90]) # show 5 different distances
         
-        plot.annot = plot.ax.annotate("{:.2f} m".format(new_yvals[0]), (new_xvals[0], new_yvals[0]), c="w")
+        plot.annot = plot.ax_ppi.annotate("{:.2f} m".format(new_yvals[0]), (new_xvals[0], new_yvals[0]), c="w")
         
         dt = 1/18 * np.pi
         t1, t0 = min(new_xvals[0] + dt,3/4 * np.pi), max(new_xvals[0] - dt, 0)
         a = np.linspace(1/4 * np.pi ,3/4 * np.pi, 50)
-        plot.ax.fill_between(a, new_yvals[0], 0, color = 'g', where = ((a < t1) & (a > t0)))
+        plot.ax_ppi.fill_between(a, new_yvals[0], 0, color = 'g', where = ((a < t1) & (a > t0)))
         plot.canvas.draw()
-        
+        plot.canvasx.draw()
     return update
 
 def excel_data_gen(excel_data):
@@ -207,8 +263,6 @@ if __name__ == '__main__':
     plot = MainWindow()
     timer = QtCore.QTimer()
     
-    
-
     if USE_SERIAL:
         from serial import Serial
         print("Using serial in port {}".format(SERIAL_PORT))
