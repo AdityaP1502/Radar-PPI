@@ -126,7 +126,6 @@ def data_updater(data_gen):
         
         if k == 5:
             common_dist = most_common_dist(dists)
-            print(common_dist)
             k = k * 0
             return [random.uniform(1/4 * np.pi, 5/4 * np.pi)], [common_dist], data_now, n_sample_x
             
@@ -153,7 +152,6 @@ def update_spectrogram(data, plot):
         return
     
     im_data = plot.im_spec.get_array()
-    print(im_data)
 
     if plot.spectogram_frame_counter < SAMPLES_PER_FRAME:
         im_data = np.hstack((im_data,arr2D))
